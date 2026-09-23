@@ -1,0 +1,51 @@
+{
+  "name": "opencode-img",
+  "version": "0.1.0",
+  "description": "An OpenCode V2 plugin that generates and edits bitmap images through the OpenAI Image API.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "openai",
+    "image-generation"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattsafaii/opencode-img.git"
+  },
+  "homepage": "https://github.com/mattsafaii/opencode-img#readme",
+  "bugs": {
+    "url": "https://github.com/mattsafaii/opencode-img/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@12.5.1",
+  "dependencies": {
+    "@opencode/plugin": "^2.0.10"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

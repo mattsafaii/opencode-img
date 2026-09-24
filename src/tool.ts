@@ -6,7 +6,7 @@ import { ImageToolError, invalidArgument, requireNonEmptyString } from "./errors
 import { SUPPORTED_REFERENCE_EXTENSIONS, mimeTypeForReferencePath } from "./image.ts"
 import { resolveOutputPath, writeImageWithoutOverwrite } from "./paths.ts"
 import type { ImageReference } from "./provider.ts"
-import { DEFAULT_PROVIDER, getProvider, type ImageProviderDefinition } from "./providers.ts"
+import { DEFAULT_PROVIDER, getProvider, resolveProviderKey } from "./providers.ts"
 
 export const TOOL_NAME = "gpt_imagegen"
 
@@ -33,31 +33,6 @@ export interface GptImagegenDependencies {
   fetch?: typeof globalThis.fetch
 }
 
-/**
- * Find a provider's API key, in precedence order: its environment variables,
- * then its OpenCode integration connection. Fails before any network request
- * when none is present.
- */
-async function resolveApiKey(
-  dependencies: GptImagegenDependencies,
-  definition: ImageProviderDefinition,
-): Promise<string> {
-  const env = dependencies.env ?? process.env
-  for (const name of definition.envVars) {
-    const value = env[name]
-    if (typeof value === "string" && value !== "") return value
-  }
-
-  const fromConnection = await dependencies.resolveConnectionKey?.(definition.integrationID)
-  if (typeof fromConnection === "string" && fromConnection !== "") return fromConnection
-
-  throw new ImageToolError(
-    "missing_api_key",
-    "validate API key",
-    `No ${definition.id} API key was found. Set ${definition.envVars.join(" or ")}, or connect the ${definition.integrationID} integration in OpenCode (run /connect).`,
-  )
-}
-
 const INPUT_SCHEMA = {
   type: "object",
   properties: {
@@ -81,17 +56,19 @@ const INPUT_SCHEMA = {
     quality: {
       type: "string",
       enum: [...QUALITY_VALUES],
-      description: "Generation quality. Defaults to the model's own default.",
+      description:
+        "Generation quality (OpenAI models only). Defaults to the model's own default.",
     },
     size: {
       type: "string",
-      description: "Image size as WIDTHxHEIGHT, or auto. Defaults to the model's own default.",
+      description:
+        "Image size as WIDTHxHEIGHT, or auto (OpenAI models only). Defaults to the model's own default.",
     },
     outputFormat: {
       type: "string",
       enum: [...OUTPUT_FORMAT_VALUES],
       description:
-        "Output format for GPT image models. Defaults to the format implied by the output path extension.",
+        "Output format. OpenAI: png, jpeg, or webp; Gemini: png or jpeg. Defaults to the format implied by the output path extension.",
     },
     referenceImages: {
       type: "array",
@@ -183,7 +160,10 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
           ? DEFAULT_PROVIDER
           : requireNonEmptyString(record.provider, "provider").toLowerCase()
       const providerDefinition = getProvider(providerId)
-      const apiKey = await resolveApiKey(dependencies, providerDefinition)
+      const apiKey = await resolveProviderKey(providerDefinition, {
+        env: dependencies.env ?? process.env,
+        connectionKey: dependencies.resolveConnectionKey,
+      })
       const referencePaths = readReferencePaths(record.referenceImages)
 
       const sessionDirectory = await dependencies.resolveSessionDirectory(context.sessionID)

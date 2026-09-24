@@ -3,10 +3,11 @@ import {
   resolveSettings,
   type GenerationSettings,
   type GenerationSettingsInput,
+  type OutputFormat,
 } from "./config.ts"
-import { ImageToolError, invalidArgument, type ImageToolOperation } from "./errors.ts"
-import { isAbort, safeErrorDetail } from "./http.ts"
-import { decodeBase64Image } from "./image.ts"
+import { ImageToolError, invalidArgument } from "./errors.ts"
+import { sendJsonRequest } from "./http.ts"
+import { decodeBase64Image, mimeTypeForOutputFormat } from "./image.ts"
 import type { ImageProvider, ImageProviderOptions, ImageRequest, ImageResult } from "./provider.ts"
 
 export const DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -14,10 +15,8 @@ export const DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1bet
 /** Nano Banana 2, the generalist Gemini image model. */
 export const GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-image"
 
-const MIME_BY_OUTPUT_FORMAT: Readonly<Record<string, string>> = {
-  png: "image/png",
-  jpeg: "image/jpeg",
-}
+/** Output formats the Gemini image models can produce. */
+const SUPPORTED_OUTPUT_FORMATS: readonly OutputFormat[] = ["png", "jpeg"]
 
 /** Resolve the settings Gemini accepts. Quality, size, and webp do not apply. */
 export function resolveGeminiSettings(
@@ -36,7 +35,7 @@ export function resolveGeminiSettings(
   const reconciled = reconcileOutputFormat(settings, targetPath)
   if (
     reconciled.outputFormat !== undefined &&
-    MIME_BY_OUTPUT_FORMAT[reconciled.outputFormat] === undefined
+    !SUPPORTED_OUTPUT_FORMATS.includes(reconciled.outputFormat)
   ) {
     throw invalidArgument(
       `The gemini provider cannot produce ${reconciled.outputFormat}; use png or jpeg.`,
@@ -120,66 +119,35 @@ export function createGeminiImageProvider(options: ImageProviderOptions): ImageP
     }
 
     const body: Record<string, unknown> = { model: request.settings.model, input }
-    const mimeType =
-      request.settings.outputFormat === undefined
-        ? undefined
-        : MIME_BY_OUTPUT_FORMAT[request.settings.outputFormat]
-    if (mimeType !== undefined) {
-      body.response_format = { type: "image", mime_type: mimeType }
+    if (request.settings.outputFormat !== undefined) {
+      body.response_format = {
+        type: "image",
+        mime_type: mimeTypeForOutputFormat(request.settings.outputFormat),
+      }
     }
     return body
   }
 
   async function send(
     request: ImageRequest,
-    operation: ImageToolOperation,
+    operation: "generate image" | "edit image",
     signal: AbortSignal | undefined,
   ): Promise<ImageResult> {
-    let response: Response
-    try {
-      response = await fetchImpl(`${baseUrl}/interactions`, {
+    const payload = await sendJsonRequest({
+      provider: "Gemini",
+      operation,
+      fetchImpl,
+      url: `${baseUrl}/interactions`,
+      init: {
         method: "POST",
         headers: {
           "x-goog-api-key": apiKey,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(buildBody(request)),
-        signal,
-      })
-    } catch (error) {
-      if (isAbort(error, signal)) {
-        throw new ImageToolError("cancelled", operation, "The image request was cancelled.", {
-          cause: error,
-        })
-      }
-      throw new ImageToolError(
-        "api_error",
-        operation,
-        `Could not reach Gemini while trying to ${operation}: ${(error as Error).message}.`,
-        { cause: error },
-      )
-    }
-
-    if (!response.ok) {
-      const detail = safeErrorDetail(await response.text().catch(() => ""))
-      throw new ImageToolError(
-        "api_error",
-        operation,
-        `Gemini returned HTTP ${response.status} while trying to ${operation}: ${detail}`,
-      )
-    }
-
-    let payload: unknown
-    try {
-      payload = await response.json()
-    } catch (error) {
-      throw new ImageToolError(
-        "malformed_response",
-        operation,
-        "Gemini returned a response body that was not valid JSON.",
-        { cause: error },
-      )
-    }
+      },
+      signal,
+    })
 
     const image = findImage(payload)
     if (image === undefined) {

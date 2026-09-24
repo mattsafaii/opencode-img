@@ -1,9 +1,6 @@
 import { extname } from "node:path"
 import { invalidArgument, requireNonEmptyString } from "./errors.ts"
 
-/** The OpenAI image model used when the caller does not name one. */
-export const DEFAULT_MODEL = "gpt-image-1.5"
-
 /** Quality values accepted by the OpenAI Images API. */
 export const QUALITY_VALUES = [
   "auto",
@@ -68,7 +65,7 @@ export function outputFormatForExtension(filePath: string): OutputFormat | undef
  */
 export function resolveSettings(
   input: GenerationSettingsInput,
-  defaultModel: string = DEFAULT_MODEL,
+  defaultModel: string,
 ): GenerationSettings {
   const model =
     input.model === undefined ? defaultModel : requireNonEmptyString(input.model, "model")

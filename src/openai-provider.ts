@@ -1,5 +1,4 @@
 import {
-  DEFAULT_MODEL,
   isGptImageModel,
   outputFormatForExtension,
   reconcileOutputFormat,
@@ -7,12 +6,15 @@ import {
   type GenerationSettings,
   type GenerationSettingsInput,
 } from "./config.ts"
-import { ImageToolError, invalidArgument, type ImageToolOperation } from "./errors.ts"
-import { isAbort, safeErrorDetail } from "./http.ts"
+import { invalidArgument, type ImageToolOperation } from "./errors.ts"
+import { sendJsonRequest } from "./http.ts"
 import { decodeImageResponse, mimeTypeForOutputFormat } from "./image.ts"
 import type { ImageProvider, ImageProviderOptions, ImageRequest, ImageResult } from "./provider.ts"
 
 export const DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+/** The OpenAI image model used when the caller does not name one. */
+export const OPENAI_DEFAULT_MODEL = "gpt-image-1.5"
 
 /**
  * Resolve the generation settings for the OpenAI models.
@@ -24,7 +26,7 @@ export function resolveOpenAISettings(
   input: GenerationSettingsInput,
   targetPath: string,
 ): GenerationSettings {
-  const settings = resolveSettings(input, DEFAULT_MODEL)
+  const settings = resolveSettings(input, OPENAI_DEFAULT_MODEL)
 
   if (isGptImageModel(settings.model)) {
     return reconcileOutputFormat(settings, targetPath)
@@ -101,58 +103,27 @@ export function createOpenAIImageProvider(options: ImageProviderOptions): ImageP
     const hasReferences = (request.references?.length ?? 0) > 0
     const url = hasReferences ? `${baseUrl}/images/edits` : `${baseUrl}/images/generations`
 
-    let response: Response
-    try {
-      response = hasReferences
-        ? await fetchImpl(url, {
+    const payload = await sendJsonRequest({
+      provider: "OpenAI",
+      operation,
+      fetchImpl,
+      url,
+      init: hasReferences
+        ? {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}` },
             body: buildEditForm(request),
-            signal,
-          })
-        : await fetchImpl(url, {
+          }
+        : {
             method: "POST",
             headers: {
               Authorization: `Bearer ${apiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify(buildGenerationBody(request)),
-            signal,
-          })
-    } catch (error) {
-      if (isAbort(error, signal)) {
-        throw new ImageToolError("cancelled", operation, "The image request was cancelled.", {
-          cause: error,
-        })
-      }
-      throw new ImageToolError(
-        "api_error",
-        operation,
-        `Could not reach OpenAI while trying to ${operation}: ${(error as Error).message}.`,
-        { cause: error },
-      )
-    }
-
-    if (!response.ok) {
-      const detail = safeErrorDetail(await response.text().catch(() => ""))
-      throw new ImageToolError(
-        "api_error",
-        operation,
-        `OpenAI returned HTTP ${response.status} while trying to ${operation}: ${detail}`,
-      )
-    }
-
-    let payload: unknown
-    try {
-      payload = await response.json()
-    } catch (error) {
-      throw new ImageToolError(
-        "malformed_response",
-        operation,
-        "OpenAI returned a response body that was not valid JSON.",
-        { cause: error },
-      )
-    }
+          },
+      signal,
+    })
 
     const decoded = decodeImageResponse(payload)
     const result: ImageResult = {

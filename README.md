@@ -68,6 +68,8 @@ Generate a 1024x1024 image of a red square on a white background and save it to 
 
 ## Worked examples
 
+Each image below is a real output of this plugin.
+
 ### Edit an existing image
 
 Pass local paths in `referenceImages` and the tool edits them.
@@ -76,11 +78,15 @@ Pass local paths in `referenceImages` and the tool edits them.
 Take assets/example-generate.png, change the coffee cup to a teacup, and add a spoon on the saucer. Save it to assets/example-edit.png.
 ```
 
+![A teacup edited from the coffee-cup reference](./assets/example-edit.png)
+
 ### Generate from a prompt
 
 ```text
 Generate a flat vector illustration of a steaming coffee cup on a saucer, two-tone, centered on a plain white background, and save it to assets/example-generate.png.
 ```
+
+![A generated flat illustration of a coffee cup](./assets/example-generate.png)
 
 ### Run the same path twice
 
@@ -89,6 +95,8 @@ The first file is left untouched; the new image lands at `example-generate-1.png
 ```text
 Now do the same path, but a slice of cake on a plate instead.
 ```
+
+![The second image, written to the versioned path](./assets/example-generate-1.png)
 
 ## Output
 

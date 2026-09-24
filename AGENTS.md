@@ -2,7 +2,7 @@
 
 ## Project
 
-`opencode-img` is an OpenCode V2 plugin for generating and editing bitmap images through a provider's image API. It exposes a `gpt_imagegen` tool, supports prompt-based generation and local reference images, and saves one output without overwriting an existing file. Each provider's API key comes from its environment variable (`OPENAI_API_KEY`, `GEMINI_API_KEY`) or its OpenCode integration connection (`openai`, `google`) from `/connect`. Providers register internally so another image service can be added without a public plugin registry.
+`opencode-img` is an OpenCode V2 plugin for generating and editing bitmap images through a provider's image API. It exposes a `gpt_imagegen` tool, supports prompt-based generation and local reference images, and saves one output without overwriting an existing file. Each provider's API key comes from its environment variable (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`) or its OpenCode integration connection (`openai`, `google`, `xai`) from `/connect`. Providers register internally so another image service can be added without a public plugin registry.
 
 ## Stack
 
@@ -16,7 +16,7 @@
 
 The `gpt_imagegen` tool accepts a prompt, output path, an optional provider, model, quality, size, output format, and reference-image paths. It validates the request, routes to the selected provider, decodes the returned image, chooses a non-conflicting output path, writes the file, and returns its path and metadata.
 
-Providers register in an internal registry (`openai`, `gemini`). The registry stays private; adding a service means adding an entry, not a public plugin API.
+Providers register in an internal registry (`openai`, `gemini`, `grok`). The registry stays private; adding a service means adding an entry, not a public plugin API.
 
 ## Commands
 

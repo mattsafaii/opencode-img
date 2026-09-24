@@ -85,5 +85,27 @@ export function mimeTypeForReferencePath(filePath: string): string | undefined {
   return MIME_BY_EXTENSION[filePath.slice(dot).toLowerCase()]
 }
 
+function startsWith(bytes: Uint8Array, signature: readonly number[]): boolean {
+  if (bytes.length < signature.length) return false
+  return signature.every((byte, index) => bytes[index] === byte)
+}
+
+/**
+ * The MIME type implied by an image's magic bytes, for adapters that cannot
+ * name the output format up front. Defaults to PNG.
+ */
+export function mimeTypeForImageBytes(bytes: Uint8Array): string {
+  if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47])) return "image/png"
+  if (startsWith(bytes, [0xff, 0xd8, 0xff])) return "image/jpeg"
+  if (startsWith(bytes, [0x47, 0x49, 0x46, 0x38])) return "image/gif"
+  if (
+    startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+    startsWith(bytes.subarray(8), [0x57, 0x45, 0x42, 0x50])
+  ) {
+    return "image/webp"
+  }
+  return "image/png"
+}
+
 /** The extensions the edits endpoint accepts for reference images. */
 export const SUPPORTED_REFERENCE_EXTENSIONS = Object.keys(MIME_BY_EXTENSION)

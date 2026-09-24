@@ -5,6 +5,10 @@ import {
   resolveGeminiSettings,
 } from "./gemini-provider.ts"
 import {
+  createGrokImageProvider,
+  resolveGrokSettings,
+} from "./grok-provider.ts"
+import {
   createOpenAIImageProvider,
   resolveOpenAISettings,
 } from "./openai-provider.ts"
@@ -50,6 +54,12 @@ const PROVIDERS: Readonly<Record<string, ImageProviderSpec>> = {
     integrationID: "google",
     resolveSettings: resolveGeminiSettings,
     create: createGeminiImageProvider,
+  },
+  grok: {
+    envVars: ["XAI_API_KEY"],
+    integrationID: "xai",
+    resolveSettings: resolveGrokSettings,
+    create: createGrokImageProvider,
   },
 }
 

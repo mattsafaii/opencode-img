@@ -1,6 +1,6 @@
 # opencode-img
 
-An OpenCode V2 plugin that generates and edits bitmap images through the OpenAI Image API. One tool, `gpt_imagegen`, takes a prompt and an output path, calls the API with your key, and writes one image to disk.
+An OpenCode V2 plugin that generates and edits bitmap images through OpenAI and Gemini image APIs. One tool, `gpt_imagegen`, takes a prompt and an output path, calls the API with your key, and writes one image to disk.
 
 [![OpenCode V2 plugin](https://img.shields.io/badge/OpenCode-V2%20plugin-blue.svg)](https://opencode.ai/v2/docs/build/plugins)
 [![npm version](https://img.shields.io/npm/v/opencode-img.svg)](https://www.npmjs.com/package/opencode-img)
@@ -13,9 +13,9 @@ Source: [github.com/mattsafaii/opencode-img](https://github.com/mattsafaii/openc
 
 ## What it does
 
-- **Generates and edits.** A prompt makes a new image; local `referenceImages` edit an existing one through the real `/v1/images/edits` multipart endpoint.
+- **Generates and edits.** A prompt makes a new image; local `referenceImages` edit an existing one.
+- **Two providers.** `openai` (default) and `gemini` (Nano Banana), selectable per call.
 - **Never overwrites.** A taken output path gets the next version instead.
-- **Your key, two ways.** The OpenCode connection from `/connect`, or `OPENAI_API_KEY`.
 - **No SDK.** Native `fetch`, `FormData`, and `Blob` only.
 
 ## Install
@@ -35,16 +35,25 @@ Or add it to `opencode.json`:
 }
 ```
 
-## Add your OpenAI API key
+## Providers
 
-Connect OpenAI in OpenCode, or set `OPENAI_API_KEY`. When both are present, the environment variable wins.
+| `provider` | Default model | Key |
+| --- | --- | --- |
+| `openai` (default) | `gpt-image-1.5` | `OPENAI_API_KEY`, or the OpenAI connection from `/connect` |
+| `gemini` | `gemini-3.1-flash-image` (Nano Banana 2) | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`), or the Google connection from `/connect` |
 
-1. **OpenCode connection (easiest).** Run `/connect`, choose OpenAI, and paste your key. The tool uses that connection with no further setup.
-2. **Environment variable.** Set `OPENAI_API_KEY` in the environment of the OpenCode server before it starts. Use it for headless setups, or when your key lives in the OpenCode Console (BYOK), which plugins cannot read.
+Pass `provider` to pick one. `quality` and `size` apply to OpenAI models only.
 
-A missing key fails before any network request, and the error names both.
+## Add your API key
 
-A key connected through the OpenCode Console (BYOK) stays in Console and is not available to plugins; set `OPENAI_API_KEY` in that case.
+Set the environment variable for the provider you use, or connect it in OpenCode. When both are present, the environment variable wins.
+
+- **OpenAI:** `OPENAI_API_KEY`, or `/connect` → OpenAI.
+- **Gemini:** `GEMINI_API_KEY`, or `/connect` → Google.
+
+Use the environment variable for headless setups, or when your key lives in the OpenCode Console (BYOK), which plugins cannot read.
+
+A missing key fails before any network request, and the error names the provider's variables and integration.
 
 ## Use
 
@@ -60,11 +69,12 @@ Generate a 1024x1024 image of a red square on a white background and save it to 
 | --- | --- | --- |
 | `prompt` | yes | What to generate, or the edit to make. |
 | `outputPath` | yes | Where to save the image. Relative paths resolve against the session directory. |
-| `model` | no | OpenAI image model. Defaults to `gpt-image-1.5`. |
-| `quality` | no | `auto`, `low`, `medium`, `high`, `standard`, `hd`, `xhigh`, or `max`. |
-| `size` | no | `WIDTHxHEIGHT` (for example `1024x1024`) or `auto`. |
-| `outputFormat` | no | `png`, `jpeg`, or `webp` for GPT image models. Inferred from the output path extension when omitted. |
-| `referenceImages` | no | Local image paths. When present, the tool edits them through `/v1/images/edits`. |
+| `provider` | no | `openai` (default) or `gemini`. |
+| `model` | no | Image model. Defaults to the provider's default. |
+| `quality` | no | `auto`, `low`, `medium`, `high`, `standard`, `hd`, `xhigh`, or `max` (OpenAI only). |
+| `size` | no | `WIDTHxHEIGHT` (for example `1024x1024`) or `auto` (OpenAI only). |
+| `outputFormat` | no | `png`, `jpeg`, or `webp` (OpenAI); `png` or `jpeg` (Gemini). Inferred from the output path extension when omitted. |
+| `referenceImages` | no | Local image paths. When present, the tool edits them. |
 
 ## Worked examples
 
@@ -108,7 +118,7 @@ Now do the same path, but a slice of cake on a plate instead.
 
 ## Disclaimer
 
-opencode-img is an independent project. It is not made by, affiliated with, or endorsed by OpenAI or the OpenCode team. Using the OpenAI Image API is subject to OpenAI's terms and usage policies.
+opencode-img is an independent project. It is not made by, affiliated with, or endorsed by any provider it supports or the OpenCode team. Calls to a provider's API are subject to that provider's terms and usage policies.
 
 ## Development
 

@@ -41,7 +41,7 @@ describe("gpt_imagegen gemini provider", () => {
   function buildTool(fetchImpl: typeof globalThis.fetch) {
     return createGptImagegenTool({
       resolveSessionDirectory: async () => sessionDirectory,
-      env: { OPENAI_API_KEY: "sk-test" },
+      env: { GEMINI_API_KEY: "gm-test" },
       fetch: fetchImpl,
     })
   }
@@ -65,7 +65,7 @@ describe("gpt_imagegen gemini provider", () => {
     assert.equal(recorder.calls.length, 1)
     assert.match(recorder.calls[0]!.url, /\/interactions$/)
     const headers = recorder.calls[0]!.init.headers as Record<string, string>
-    assert.equal(headers["x-goog-api-key"], "sk-test")
+    assert.equal(headers["x-goog-api-key"], "gm-test")
 
     const body = JSON.parse(String(recorder.calls[0]!.init.body)) as {
       model: string
@@ -129,6 +129,30 @@ describe("gpt_imagegen gemini provider", () => {
           fakeContext(),
         ),
       (error: unknown) => error instanceof ImageToolError && error.code === "invalid_argument",
+    )
+    assert.equal(recorder.calls.length, 0)
+  })
+
+  it("names the Gemini environment variable when no key is available", async () => {
+    const recorder = forbiddenFetch()
+    const tool = createGptImagegenTool({
+      resolveSessionDirectory: async () => sessionDirectory,
+      env: {},
+      fetch: recorder.fetch,
+    })
+
+    await assert.rejects(
+      () =>
+        tool.execute(
+          { prompt: "x", outputPath: "gemini/x.png", provider: "gemini" },
+          fakeContext(),
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof ImageToolError)
+        assert.equal(error.code, "missing_api_key")
+        assert.match(error.message, /GEMINI_API_KEY/)
+        return true
+      },
     )
     assert.equal(recorder.calls.length, 0)
   })

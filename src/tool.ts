@@ -6,7 +6,7 @@ import { ImageToolError, invalidArgument, requireNonEmptyString } from "./errors
 import { SUPPORTED_REFERENCE_EXTENSIONS, mimeTypeForReferencePath } from "./image.ts"
 import { resolveOutputPath, writeImageWithoutOverwrite } from "./paths.ts"
 import type { ImageReference } from "./provider.ts"
-import { DEFAULT_PROVIDER, getProvider } from "./providers.ts"
+import { DEFAULT_PROVIDER, getProvider, type ImageProviderDefinition } from "./providers.ts"
 
 export const TOOL_NAME = "gpt_imagegen"
 
@@ -20,36 +20,41 @@ type ToolExecutionContext = ToolContext & { readonly signal?: AbortSignal }
 export interface GptImagegenDependencies {
   /** Resolve the OpenCode session directory used as the base for relative paths. */
   resolveSessionDirectory: (sessionID: string) => Promise<string>
-  /** Environment source for `OPENAI_API_KEY`; defaults to `process.env`. */
+  /** Environment source for provider keys; defaults to `process.env`. */
   env?: Record<string, string | undefined>
   /**
-   * Resolve a key from OpenCode's OpenAI connection. Consulted only when the
-   * option and the environment variable are absent.
+   * Resolve a key from an OpenCode integration connection. Consulted only when
+   * none of the provider's environment variables are set.
    */
-  resolveApiKey?: () => Promise<string | undefined>
-  /** Override the OpenAI API base URL. */
+  resolveConnectionKey?: (integrationID: string) => Promise<string | undefined>
+  /** Override the provider API base URL. */
   baseUrl?: string
   /** Inject a fetch implementation (used by tests). */
   fetch?: typeof globalThis.fetch
 }
 
 /**
- * Find the OpenAI API key, in precedence order: the `OPENAI_API_KEY`
- * environment variable, then OpenCode's OpenAI connection. Fails before any
- * network request when neither is present.
+ * Find a provider's API key, in precedence order: its environment variables,
+ * then its OpenCode integration connection. Fails before any network request
+ * when none is present.
  */
-async function resolveApiKey(dependencies: GptImagegenDependencies): Promise<string> {
+async function resolveApiKey(
+  dependencies: GptImagegenDependencies,
+  definition: ImageProviderDefinition,
+): Promise<string> {
   const env = dependencies.env ?? process.env
-  const fromEnv = env.OPENAI_API_KEY
-  if (typeof fromEnv === "string" && fromEnv !== "") return fromEnv
+  for (const name of definition.envVars) {
+    const value = env[name]
+    if (typeof value === "string" && value !== "") return value
+  }
 
-  const fromConnection = await dependencies.resolveApiKey?.()
+  const fromConnection = await dependencies.resolveConnectionKey?.(definition.integrationID)
   if (typeof fromConnection === "string" && fromConnection !== "") return fromConnection
 
   throw new ImageToolError(
     "missing_api_key",
     "validate API key",
-    "No OpenAI API key was found. Connect OpenAI in OpenCode (run /connect) or set OPENAI_API_KEY.",
+    `No ${definition.id} API key was found. Set ${definition.envVars.join(" or ")}, or connect the ${definition.integrationID} integration in OpenCode (run /connect).`,
   )
 }
 
@@ -170,8 +175,6 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
     input: INPUT_SCHEMA,
     options: { codemode: true },
     async execute(input: unknown, context: ToolExecutionContext): Promise<ToolResult> {
-      const apiKey = await resolveApiKey(dependencies)
-
       const record = (input ?? {}) as Record<string, unknown>
       const prompt = requireNonEmptyString(record.prompt, "prompt")
       const outputPath = requireNonEmptyString(record.outputPath, "outputPath")
@@ -180,6 +183,7 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
           ? DEFAULT_PROVIDER
           : requireNonEmptyString(record.provider, "provider").toLowerCase()
       const providerDefinition = getProvider(providerId)
+      const apiKey = await resolveApiKey(dependencies, providerDefinition)
       const referencePaths = readReferencePaths(record.referenceImages)
 
       const sessionDirectory = await dependencies.resolveSessionDirectory(context.sessionID)

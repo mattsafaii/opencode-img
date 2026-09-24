@@ -44,7 +44,7 @@ describe("gpt_imagegen API key resolution", () => {
     assert.equal(
       await usedKey({
         env: { OPENAI_API_KEY: "sk-env" },
-        resolveApiKey: async () => "sk-connection",
+        resolveConnectionKey: async () => "sk-connection",
       }),
       "Bearer sk-env",
     )
@@ -52,14 +52,18 @@ describe("gpt_imagegen API key resolution", () => {
 
   it("falls back to the OpenAI connection when the environment is absent", async () => {
     assert.equal(
-      await usedKey({ env: {}, resolveApiKey: async () => "sk-connection" }),
+      await usedKey({ env: {}, resolveConnectionKey: async () => "sk-connection" }),
       "Bearer sk-connection",
     )
   })
 
   it("fails before any request when no key is available, naming the ways to set one", async () => {
     const recorder = forbiddenFetch()
-    const tool = buildTool({ env: {}, resolveApiKey: async () => undefined, fetch: recorder.fetch })
+    const tool = buildTool({
+      env: {},
+      resolveConnectionKey: async () => undefined,
+      fetch: recorder.fetch,
+    })
 
     await assert.rejects(
       () => tool.execute({ prompt: "a pixel", outputPath: "pixel.png" }, fakeContext()),

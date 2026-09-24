@@ -16,6 +16,10 @@ export interface ImageProviderDefinition {
   readonly id: string
   /** The model used when the caller does not name one. */
   readonly defaultModel: string
+  /** Environment variables that can supply the key, checked in order. */
+  readonly envVars: readonly string[]
+  /** OpenCode integration id whose connection can supply the key. */
+  readonly integrationID: string
   /** Validate the request settings and reconcile the output format with the path. */
   readonly resolveSettings: (
     input: GenerationSettingsInput,
@@ -35,12 +39,16 @@ const PROVIDERS: Readonly<Record<string, ImageProviderDefinition>> = {
   openai: {
     id: "openai",
     defaultModel: DEFAULT_MODEL,
+    envVars: ["OPENAI_API_KEY"],
+    integrationID: "openai",
     resolveSettings: resolveOpenAISettings,
     create: createOpenAIImageProvider,
   },
   gemini: {
     id: "gemini",
     defaultModel: GEMINI_DEFAULT_MODEL,
+    envVars: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"],
+    integrationID: "google",
     resolveSettings: resolveGeminiSettings,
     create: createGeminiImageProvider,
   },

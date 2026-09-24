@@ -9,7 +9,7 @@ An OpenCode V2 plugin that generates and edits bitmap images through the OpenAI 
 
 Source: [github.com/mattsafaii/opencode-img](https://github.com/mattsafaii/opencode-img)
 
-**Status:** 0.1.0, early release.
+**Status:** early release.
 
 ## What it does
 

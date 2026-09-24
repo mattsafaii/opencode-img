@@ -1,15 +1,9 @@
 import { isGptImageModel } from "./config.ts"
 import { ImageToolError, type ImageToolOperation } from "./errors.ts"
 import { decodeImageResponse, mimeTypeForOutputFormat } from "./image.ts"
-import type { ImageProvider, ImageRequest, ImageResult } from "./provider.ts"
+import type { ImageProvider, ImageProviderOptions, ImageRequest, ImageResult } from "./provider.ts"
 
 export const DEFAULT_BASE_URL = "https://api.openai.com/v1"
-
-export interface OpenAIImageProviderOptions {
-  apiKey: string
-  baseUrl?: string
-  fetch?: typeof globalThis.fetch
-}
 
 const MAX_ERROR_DETAIL = 500
 
@@ -78,9 +72,7 @@ function buildEditForm(request: ImageRequest): FormData {
  * With reference images it becomes a multipart request to `/images/edits` and
  * every image is attached under the `image[]` field.
  */
-export function createOpenAIImageProvider(
-  options: OpenAIImageProviderOptions,
-): ImageProvider {
+export function createOpenAIImageProvider(options: ImageProviderOptions): ImageProvider {
   const apiKey = options.apiKey
   const baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "")
   const fetchImpl = options.fetch ?? globalThis.fetch

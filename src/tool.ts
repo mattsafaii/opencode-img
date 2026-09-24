@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises"
 import { basename } from "node:path"
 import type { Info as ToolInfo, Result as ToolResult, ToolContext } from "@opencode/plugin/promise/tool"
 import {
-  DEFAULT_MODEL,
   OUTPUT_FORMAT_VALUES,
   QUALITY_VALUES,
   reconcileOutputFormat,
@@ -10,9 +9,9 @@ import {
 } from "./config.ts"
 import { ImageToolError, invalidArgument, requireNonEmptyString } from "./errors.ts"
 import { SUPPORTED_REFERENCE_EXTENSIONS, mimeTypeForReferencePath } from "./image.ts"
-import { createOpenAIImageProvider } from "./openai-provider.ts"
-import type { ImageReference } from "./provider.ts"
 import { resolveOutputPath, writeImageWithoutOverwrite } from "./paths.ts"
+import type { ImageReference } from "./provider.ts"
+import { DEFAULT_PROVIDER, getProvider } from "./providers.ts"
 
 export const TOOL_NAME = "gpt_imagegen"
 
@@ -71,9 +70,13 @@ const INPUT_SCHEMA = {
       description:
         "Where to save the image. Relative paths resolve against the session directory; an existing file is never replaced.",
     },
+    provider: {
+      type: "string",
+      description: `Image provider. Defaults to ${DEFAULT_PROVIDER}.`,
+    },
     model: {
       type: "string",
-      description: `OpenAI image model. Defaults to ${DEFAULT_MODEL}.`,
+      description: "Image model. Defaults to the provider's default.",
     },
     quality: {
       type: "string",
@@ -94,7 +97,7 @@ const INPUT_SCHEMA = {
       type: "array",
       items: { type: "string" },
       description:
-        "Local reference image paths. When present the tool edits them through the OpenAI edits endpoint.",
+        "Local reference image paths. When present the tool edits them through the provider's edit endpoint.",
     },
   },
   required: ["prompt", "outputPath"],
@@ -168,7 +171,7 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
   return {
     name: TOOL_NAME,
     description:
-      "Generate a new bitmap image from a prompt, or edit one from local reference images, using the OpenAI Image API. Saves one image to disk and returns its path.",
+      "Generate a new bitmap image from a prompt, or edit one from local reference images. Saves one image to disk and returns its path.",
     input: INPUT_SCHEMA,
     options: { codemode: true },
     async execute(input: unknown, context: ToolExecutionContext): Promise<ToolResult> {
@@ -177,12 +180,20 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
       const record = (input ?? {}) as Record<string, unknown>
       const prompt = requireNonEmptyString(record.prompt, "prompt")
       const outputPath = requireNonEmptyString(record.outputPath, "outputPath")
-      const requestedSettings = resolveSettings({
-        model: record.model,
-        quality: record.quality,
-        size: record.size,
-        outputFormat: record.outputFormat,
-      })
+      const providerId =
+        record.provider === undefined
+          ? DEFAULT_PROVIDER
+          : requireNonEmptyString(record.provider, "provider").toLowerCase()
+      const providerDefinition = getProvider(providerId)
+      const requestedSettings = resolveSettings(
+        {
+          model: record.model,
+          quality: record.quality,
+          size: record.size,
+          outputFormat: record.outputFormat,
+        },
+        providerDefinition.defaultModel,
+      )
       const referencePaths = readReferencePaths(record.referenceImages)
 
       const sessionDirectory = await dependencies.resolveSessionDirectory(context.sessionID)
@@ -194,7 +205,7 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
         status: references.length > 0 ? "editing image" : "generating image",
       })
 
-      const provider = createOpenAIImageProvider({
+      const provider = providerDefinition.create({
         apiKey,
         baseUrl: dependencies.baseUrl,
         fetch: dependencies.fetch,
@@ -215,6 +226,7 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
 
       const metadata: Record<string, unknown> = {
         path: savedPath,
+        provider: providerDefinition.id,
         model: settings.model,
         mimeType: result.mimeType,
         bytes: result.data.byteLength,

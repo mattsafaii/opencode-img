@@ -60,14 +60,18 @@ export function outputFormatForExtension(filePath: string): OutputFormat | undef
 }
 
 /**
- * Validate the optional generation settings and apply the model default.
+ * Validate the optional generation settings and apply the provider's default
+ * model.
  *
  * Size is checked as a shape (`auto` or `WIDTHxHEIGHT`) rather than a fixed
  * list so newer models that accept arbitrary resolutions keep working.
  */
-export function resolveSettings(input: GenerationSettingsInput): GenerationSettings {
+export function resolveSettings(
+  input: GenerationSettingsInput,
+  defaultModel: string = DEFAULT_MODEL,
+): GenerationSettings {
   const model =
-    input.model === undefined ? DEFAULT_MODEL : requireNonEmptyString(input.model, "model")
+    input.model === undefined ? defaultModel : requireNonEmptyString(input.model, "model")
 
   const settings: GenerationSettings = { model }
 

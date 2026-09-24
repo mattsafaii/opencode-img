@@ -35,6 +35,34 @@ Or add it to `opencode.json`:
 }
 ```
 
+## Plugin options
+
+Set call defaults in `opencode.json` with the object form:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    {
+      "package": "opencode-img",
+      "options": {
+        "provider": "gemini",
+        "models": {
+          "openai": "gpt-image-1.5",
+          "gemini": "gemini-3.1-flash-image",
+          "grok": "grok-imagine-image-2.0"
+        }
+      }
+    }
+  ]
+}
+```
+
+- `provider` — used when a call does not name one. Defaults to `openai`.
+- `models` — per-provider default model. Each provider falls back to its built-in default.
+
+A call can still pass `provider` or `model` to override either.
+
 ## Providers
 
 | `provider` | Default model | Key |

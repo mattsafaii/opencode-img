@@ -27,6 +27,10 @@ export interface GptImagegenDependencies {
    * none of the provider's environment variables are set.
    */
   resolveConnectionKey?: (integrationID: string) => Promise<string | undefined>
+  /** Provider used when a call does not name one. Defaults to `openai`. */
+  defaultProvider?: string
+  /** Per-provider default model, overriding each provider's built-in default. */
+  defaultModels?: Readonly<Record<string, string>>
   /** Override the provider API base URL. */
   baseUrl?: string
   /** Inject a fetch implementation (used by tests). */
@@ -157,7 +161,7 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
       const outputPath = requireNonEmptyString(record.outputPath, "outputPath")
       const providerId =
         record.provider === undefined
-          ? DEFAULT_PROVIDER
+          ? (dependencies.defaultProvider ?? DEFAULT_PROVIDER).toLowerCase()
           : requireNonEmptyString(record.provider, "provider").toLowerCase()
       const providerDefinition = getProvider(providerId)
       const apiKey = await resolveProviderKey(providerDefinition, {
@@ -170,7 +174,7 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
       const targetPath = resolveOutputPath(outputPath, sessionDirectory)
       const settings = providerDefinition.resolveSettings(
         {
-          model: record.model,
+          model: record.model ?? dependencies.defaultModels?.[providerId],
           quality: record.quality,
           size: record.size,
           outputFormat: record.outputFormat,

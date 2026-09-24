@@ -14,7 +14,7 @@
 
 ## Surfaces and flow
 
-The `gpt_imagegen` tool accepts a prompt, output path, an optional provider, model, quality, size, output format, and reference-image paths. It validates the request, routes to the selected provider, decodes the returned image, chooses a non-conflicting output path, writes the file, and returns its path and metadata.
+The `gpt_imagegen` tool accepts a prompt, output path, an optional provider, model, quality, size, output format, and reference-image paths. It validates the request, routes to the selected provider, decodes the returned image, chooses a non-conflicting output path, writes the file, and returns its path and metadata. Setup reads the plugin options (`provider`, `models`) as defaults for calls that omit them.
 
 Providers register in an internal registry (`openai`, `gemini`, `grok`). The registry stays private; adding a service means adding an entry, not a public plugin API.
 

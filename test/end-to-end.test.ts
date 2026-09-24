@@ -9,6 +9,7 @@ import plugin from "../src/index.ts"
 import { createGptImagegenTool } from "../src/tool.ts"
 import {
   ONE_PIXEL_PNG,
+  ONE_PIXEL_PNG_BASE64,
   fakeContext,
   generationPayload,
   makeTempDirectory,
@@ -112,9 +113,11 @@ describe("core flow end to end", () => {
   function fakePluginContext(options: {
     directory: string
     connection?: { active: boolean; credential?: unknown }
+    pluginOptions?: Record<string, unknown>
   }) {
     let registered: ToolInfo | undefined
     const context = {
+      options: options.pluginOptions ?? {},
       tool: {
         transform: async (callback: (editor: unknown) => void) => {
           callback({
@@ -183,5 +186,49 @@ describe("core flow end to end", () => {
 
     const headers = calls[0]!.headers as Record<string, string>
     assert.equal(headers.Authorization, "Bearer sk-from-connection")
+  })
+
+  it("reads the provider and model options during setup", async () => {
+    const { context, getTool } = fakePluginContext({
+      directory: sessionDirectory,
+      connection: { active: true, credential: { type: "key", key: "gm-from-connection" } },
+      pluginOptions: {
+        provider: "gemini",
+        models: { gemini: "gemini-3.1-flash-image-preview" },
+      },
+    })
+
+    await plugin.setup(context as unknown as Parameters<typeof plugin.setup>[0])
+    const tool = getTool()
+    assert.ok(tool)
+
+    const realFetch = globalThis.fetch
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return new Response(
+        JSON.stringify({
+          steps: [
+            {
+              type: "model_output",
+              content: [{ type: "image", mime_type: "image/png", data: ONE_PIXEL_PNG_BASE64 }],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }) as typeof globalThis.fetch
+
+    try {
+      await tool!.execute({ prompt: "a pixel", outputPath: "from-options.png" }, fakeContext())
+    } finally {
+      globalThis.fetch = realFetch
+    }
+
+    assert.match(calls[0]!.url, /\/interactions$/)
+    const headers = calls[0]!.init.headers as Record<string, string>
+    assert.equal(headers["x-goog-api-key"], "gm-from-connection")
+    const body = JSON.parse(String(calls[0]!.init.body)) as Record<string, unknown>
+    assert.equal(body.model, "gemini-3.1-flash-image-preview")
   })
 })

@@ -1,12 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { basename } from "node:path"
 import type { Info as ToolInfo, Result as ToolResult, ToolContext } from "@opencode/plugin/promise/tool"
-import {
-  OUTPUT_FORMAT_VALUES,
-  QUALITY_VALUES,
-  reconcileOutputFormat,
-  resolveSettings,
-} from "./config.ts"
+import { OUTPUT_FORMAT_VALUES, QUALITY_VALUES } from "./config.ts"
 import { ImageToolError, invalidArgument, requireNonEmptyString } from "./errors.ts"
 import { SUPPORTED_REFERENCE_EXTENSIONS, mimeTypeForReferencePath } from "./image.ts"
 import { resolveOutputPath, writeImageWithoutOverwrite } from "./paths.ts"
@@ -185,20 +180,19 @@ export function createGptImagegenTool(dependencies: GptImagegenDependencies): To
           ? DEFAULT_PROVIDER
           : requireNonEmptyString(record.provider, "provider").toLowerCase()
       const providerDefinition = getProvider(providerId)
-      const requestedSettings = resolveSettings(
+      const referencePaths = readReferencePaths(record.referenceImages)
+
+      const sessionDirectory = await dependencies.resolveSessionDirectory(context.sessionID)
+      const targetPath = resolveOutputPath(outputPath, sessionDirectory)
+      const settings = providerDefinition.resolveSettings(
         {
           model: record.model,
           quality: record.quality,
           size: record.size,
           outputFormat: record.outputFormat,
         },
-        providerDefinition.defaultModel,
+        targetPath,
       )
-      const referencePaths = readReferencePaths(record.referenceImages)
-
-      const sessionDirectory = await dependencies.resolveSessionDirectory(context.sessionID)
-      const targetPath = resolveOutputPath(outputPath, sessionDirectory)
-      const settings = reconcileOutputFormat(requestedSettings, targetPath)
       const references = await loadReferences(referencePaths, sessionDirectory)
 
       await context.progress({

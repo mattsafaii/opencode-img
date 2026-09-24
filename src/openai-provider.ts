@@ -1,31 +1,47 @@
-import { isGptImageModel } from "./config.ts"
-import { ImageToolError, type ImageToolOperation } from "./errors.ts"
+import {
+  DEFAULT_MODEL,
+  isGptImageModel,
+  outputFormatForExtension,
+  reconcileOutputFormat,
+  resolveSettings,
+  type GenerationSettings,
+  type GenerationSettingsInput,
+} from "./config.ts"
+import { ImageToolError, invalidArgument, type ImageToolOperation } from "./errors.ts"
+import { isAbort, safeErrorDetail } from "./http.ts"
 import { decodeImageResponse, mimeTypeForOutputFormat } from "./image.ts"
 import type { ImageProvider, ImageProviderOptions, ImageRequest, ImageResult } from "./provider.ts"
 
 export const DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
-const MAX_ERROR_DETAIL = 500
+/**
+ * Resolve the generation settings for the OpenAI models.
+ *
+ * The OpenAI path keeps two model-family rules: an explicit `outputFormat` is
+ * rejected for DALL·E, and the output format is reconciled with the output path.
+ */
+export function resolveOpenAISettings(
+  input: GenerationSettingsInput,
+  targetPath: string,
+): GenerationSettings {
+  const settings = resolveSettings(input, DEFAULT_MODEL)
 
-function isAbort(error: unknown, signal: AbortSignal | undefined): boolean {
-  return (
-    (error instanceof Error && error.name === "AbortError") || signal?.aborted === true
-  )
-}
-
-function safeErrorDetail(body: string): string {
-  const trimmed = body.trim()
-  if (trimmed === "") return "no response body"
-  try {
-    const parsed = JSON.parse(trimmed) as { error?: { message?: unknown } }
-    const message = parsed.error?.message
-    if (typeof message === "string" && message !== "") {
-      return message.slice(0, MAX_ERROR_DETAIL)
-    }
-  } catch {
-    // Not JSON; fall through to the raw text.
+  if (isGptImageModel(settings.model)) {
+    return reconcileOutputFormat(settings, targetPath)
   }
-  return trimmed.slice(0, MAX_ERROR_DETAIL)
+
+  if (settings.outputFormat !== undefined) {
+    throw invalidArgument(
+      "`outputFormat` is only supported by the GPT image models; DALL·E models always return PNG.",
+    )
+  }
+  const extensionFormat = outputFormatForExtension(targetPath)
+  if (extensionFormat !== undefined && extensionFormat !== "png") {
+    throw invalidArgument(
+      `DALL·E models always return PNG, so \`outputPath\` cannot end in \`.${extensionFormat}\`.`,
+    )
+  }
+  return settings
 }
 
 /**

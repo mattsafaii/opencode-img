@@ -63,13 +63,13 @@ describe("gpt_imagegen provider selection", () => {
     await assert.rejects(
       () =>
         tool.execute(
-          { prompt: "a pixel", outputPath: "unknown.png", provider: "gemini" },
+          { prompt: "a pixel", outputPath: "unknown.png", provider: "midjourney" },
           fakeContext(),
         ),
       (error: unknown) => {
         assert.ok(error instanceof ImageToolError)
         assert.equal(error.code, "invalid_argument")
-        assert.match(error.message, /gemini/)
+        assert.match(error.message, /midjourney/)
         assert.match(error.message, /openai/)
         return true
       },

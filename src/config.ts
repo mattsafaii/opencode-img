@@ -98,11 +98,6 @@ export function resolveSettings(
     if (!OUTPUT_FORMAT_VALUES.includes(outputFormat as OutputFormat)) {
       throw invalidArgument(`\`outputFormat\` must be one of ${OUTPUT_FORMAT_VALUES.join(", ")}.`)
     }
-    if (!isGptImageModel(model)) {
-      throw invalidArgument(
-        "`outputFormat` is only supported by the GPT image models; DALL·E models always return PNG.",
-      )
-    }
     settings.outputFormat = outputFormat as OutputFormat
   }
 
@@ -114,7 +109,7 @@ export function resolveSettings(
  *
  * An explicit `outputFormat` must match a known image extension on the path.
  * When the format is omitted, a known extension selects it so the bytes never
- * contradict the name. DALL·E models can only produce PNG.
+ * contradict the name.
  */
 export function reconcileOutputFormat(
   settings: GenerationSettings,
@@ -127,15 +122,6 @@ export function reconcileOutputFormat(
     if (settings.outputFormat !== extensionFormat) {
       throw invalidArgument(
         `\`outputFormat\` is \`${settings.outputFormat}\` but \`outputPath\` ends in \`.${extensionFormat}\`. Align them or drop \`outputFormat\`.`,
-      )
-    }
-    return settings
-  }
-
-  if (!isGptImageModel(settings.model)) {
-    if (extensionFormat !== "png") {
-      throw invalidArgument(
-        `DALL·E models always return PNG, so \`outputPath\` cannot end in \`.${extensionFormat}\`.`,
       )
     }
     return settings

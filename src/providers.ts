@@ -1,6 +1,11 @@
-import { DEFAULT_MODEL } from "./config.ts"
+import { DEFAULT_MODEL, type GenerationSettings, type GenerationSettingsInput } from "./config.ts"
 import { invalidArgument } from "./errors.ts"
-import { createOpenAIImageProvider } from "./openai-provider.ts"
+import {
+  GEMINI_DEFAULT_MODEL,
+  createGeminiImageProvider,
+  resolveGeminiSettings,
+} from "./gemini-provider.ts"
+import { createOpenAIImageProvider, resolveOpenAISettings } from "./openai-provider.ts"
 import type { ImageProvider, ImageProviderOptions } from "./provider.ts"
 
 /** The provider used when the caller does not name one. */
@@ -11,6 +16,11 @@ export interface ImageProviderDefinition {
   readonly id: string
   /** The model used when the caller does not name one. */
   readonly defaultModel: string
+  /** Validate the request settings and reconcile the output format with the path. */
+  readonly resolveSettings: (
+    input: GenerationSettingsInput,
+    targetPath: string,
+  ) => GenerationSettings
   /** Build the adapter for this provider. */
   readonly create: (options: ImageProviderOptions) => ImageProvider
 }
@@ -25,7 +35,14 @@ const PROVIDERS: Readonly<Record<string, ImageProviderDefinition>> = {
   openai: {
     id: "openai",
     defaultModel: DEFAULT_MODEL,
+    resolveSettings: resolveOpenAISettings,
     create: createOpenAIImageProvider,
+  },
+  gemini: {
+    id: "gemini",
+    defaultModel: GEMINI_DEFAULT_MODEL,
+    resolveSettings: resolveGeminiSettings,
+    create: createGeminiImageProvider,
   },
 }
 
